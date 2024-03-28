@@ -5,7 +5,7 @@ export function randomPassword(length = 16) {
 	const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 	const lowercase = 'abcdefghijklmnopqrstuvwxyz';
 	const numbers = '0123456789';
-	const symbols = '!@#$%^&*()_+-=[]{}|;:,./<>?';
+	const symbols = '!@#$%^&*()_+-=[]{}|;:/?';
 	const allCharacters = uppercase + lowercase + numbers + symbols;
 	const generate = customAlphabet(allCharacters, length);
 
@@ -41,6 +41,19 @@ export function showSpinner() {
 export function parseAndSortIpLists(ipListsData) {
 	const ipLists = JSON.parse(ipListsData || '[]');
 	return ipLists.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+// Determines if the current browser is Desktop Safari
+export function isDesktopSafari() {
+	const userAgent = window.navigator.userAgent;
+	const isSafari = /^((?!chrome|android).)*safari/i.test(userAgent);
+	const isMac = /Macintosh|MacIntel/i.test(window.navigator.platform);
+	return isSafari && isMac;
+}
+
+// Waits for the given number of milliseconds
+export function delay(milliseconds) {
+	return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
 // Posts data to the given URL and returns the response

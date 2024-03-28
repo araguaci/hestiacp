@@ -72,9 +72,9 @@ mysql_connect() {
 	fi
 	if [ '0' -ne "$?" ]; then
 		if [ "$notify" != 'no' ]; then
-			email=$(grep CONTACT $HESTIA/data/users/admin/user.conf | cut -f 2 -d \')
+			email=$(grep CONTACT "$HESTIA/data/users/$ROOT_USER/user.conf" | cut -f 2 -d \')
 			subj="MySQL connection error on $(hostname)"
-			echo -e "Can't connect to MySQL $HOST\n$(cat $mysql_out)" \
+			echo -e "Can't connect to MySQL $HOST:$PORT\n$(cat $mysql_out)" \
 				| $SENDMAIL -s "$subj" $email
 		fi
 		rm -f $mysql_out
@@ -117,7 +117,7 @@ mysql_dump() {
 		if [ '0' -ne "$?" ]; then
 			rm -rf $tmpdir
 			if [ "$notify" != 'no' ]; then
-				email=$(grep CONTACT $HESTIA/data/users/admin/user.conf | cut -f 2 -d \')
+				email=$(grep CONTACT "$HESTIA/data/users/$ROOT_USER/user.conf" | cut -f 2 -d \')
 				subj="MySQL error on $(hostname)"
 				echo -e "Can't dump database $database\n$(cat $err)" \
 					| $SENDMAIL -s "$subj" $email
@@ -145,9 +145,9 @@ psql_connect() {
 	psql -h $HOST -U $USER -p $PORT -c "SELECT VERSION()" > /dev/null 2> /tmp/e.psql
 	if [ '0' -ne "$?" ]; then
 		if [ "$notify" != 'no' ]; then
-			email=$(grep CONTACT $HESTIA/data/users/admin/user.conf | cut -f 2 -d \')
+			email=$(grep CONTACT "$HESTIA/data/users/$ROOT_USER/user.conf" | cut -f 2 -d \')
 			subj="PostgreSQL connection error on $(hostname)"
-			echo -e "Can't connect to PostgreSQL $HOST\n$(cat /tmp/e.psql)" \
+			echo -e "Can't connect to PostgreSQL $HOST:$PORT\n$(cat /tmp/e.psql)" \
 				| $SENDMAIL -s "$subj" $email
 		fi
 		echo "Error: Connection to $HOST failed"
@@ -168,7 +168,7 @@ psql_dump() {
 	if [ '0' -ne "$?" ]; then
 		rm -rf $tmpdir
 		if [ "$notify" != 'no' ]; then
-			email=$(grep CONTACT $HESTIA/data/users/admin/user.conf | cut -f 2 -d \')
+			email=$(grep CONTACT "$HESTIA/data/users/$ROOT_USER/user.conf" | cut -f 2 -d \')
 			subj="PostgreSQL error on $(hostname)"
 			echo -e "Can't dump database $database\n$(cat /tmp/e.psql)" \
 				| $SENDMAIL -s "$subj" $email
@@ -360,9 +360,22 @@ add_pgsql_database() {
 
 add_mysql_database_temp_user() {
 	mysql_connect $host
-	query="GRANT ALL ON \`$database\`.* TO \`$dbuser\`@localhost
-    IDENTIFIED BY '$dbpass'"
-	mysql_query "$query" > /dev/null
+
+	mysql_ver_sub=$(echo $mysql_ver | cut -d '.' -f1)
+	mysql_ver_sub_sub=$(echo $mysql_ver | cut -d '.' -f2)
+
+	if [ "$mysql_fork" = "mysql" ] && [ "$mysql_ver_sub" -ge 8 ]; then
+		query="CREATE USER \`$dbuser\`@localhost
+			IDENTIFIED BY '$dbpass'"
+		mysql_query "$query" > /dev/null
+
+		query="GRANT ALL ON \`$database\`.* TO \`$dbuser\`@localhost"
+		mysql_query "$query" > /dev/null
+	else
+		query="GRANT ALL ON \`$database\`.* TO \`$dbuser\`@localhost
+    		IDENTIFIED BY '$dbpass'"
+		mysql_query "$query" > /dev/null
+	fi
 }
 
 delete_mysql_database_temp_user() {

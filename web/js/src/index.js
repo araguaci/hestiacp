@@ -1,8 +1,10 @@
 import alpineInit from './alpineInit';
 import focusFirstInput from './focusFirstInput';
 import handleAddIpLists from './addIpLists';
+import handleAutoTrimInputs from './autoTrimInputs';
 import handleConfirmAction from './confirmAction';
 import handleCopyCreds from './copyCreds';
+import handleClipboardCopy from './clipboardCopy';
 import handleCronGenerator from './cronGenerator';
 import handleDatabaseHints from './databaseHints';
 import handleDiscardAllMail from './discardAllMail';
@@ -14,8 +16,8 @@ import handleFormSubmit from './formSubmit';
 import handleFtpAccountHints from './ftpAccountHints';
 import handleFtpAccounts from './ftpAccounts';
 import handleIpListDataSource from './ipListDataSource';
-import handleListSelectAll from './listSelectAll';
 import handleListSorting from './listSorting';
+import handleListUnitSelect from './listUnitSelect';
 import handleNameServerInput from './nameServerInput';
 import handlePasswordInput from './passwordInput';
 import handleShortcuts from './shortcuts';
@@ -25,14 +27,17 @@ import handleTabPanels from './tabPanels';
 import handleToggleAdvanced from './toggleAdvanced';
 import handleUnlimitedInput from './unlimitedInput';
 import initRrdCharts from './rrdCharts';
+import initWebTerminal from './webTerminal';
 
 initListeners();
 focusFirstInput();
 
 function initListeners() {
 	handleAddIpLists();
+	handleAutoTrimInputs();
 	handleConfirmAction();
 	handleCopyCreds();
+	handleClipboardCopy();
 	handleCronGenerator();
 	handleDiscardAllMail();
 	handleDnsRecordHint();
@@ -40,8 +45,8 @@ function initListeners() {
 	handleEditWebListeners();
 	handleFormSubmit();
 	handleFtpAccounts();
-	handleListSelectAll();
 	handleListSorting();
+	handleListUnitSelect();
 	handleNameServerInput();
 	handlePasswordInput();
 	handleStickyToolbar();
@@ -49,6 +54,7 @@ function initListeners() {
 	handleTabPanels();
 	handleToggleAdvanced();
 	initRrdCharts();
+	initWebTerminal();
 }
 
 document.addEventListener('alpine:init', () => {

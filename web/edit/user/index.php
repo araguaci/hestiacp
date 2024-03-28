@@ -24,11 +24,13 @@ if ($_SESSION["userContext"] === "admin" && !empty($_GET["user"])) {
 
 // Prevent other users with admin privileges from editing properties of default 'admin' user
 if (
-	($_SESSION["userContext"] === "admin" && isset($_SESSION["look"]) && $user == "admin") ||
+	($_SESSION["userContext"] === "admin" &&
+		$_SESSION["look"] != "" &&
+		$user == $_SESSION["ROOT_USER"]) ||
 	($_SESSION["userContext"] === "admin" &&
 		!isset($_SESSION["look"]) &&
 		$user == "admin" &&
-		$_SESSION["user"] != "admin")
+		$_SESSION["user"] != $_SESSION["ROOT_USER"])
 ) {
 	header("Location: /list/user/");
 	exit();
@@ -53,6 +55,7 @@ $v_user_theme = $data[$v_username]["THEME"];
 $v_sort_order = $data[$v_username]["PREF_UI_SORT"];
 $v_name = $data[$v_username]["NAME"];
 $v_shell = $data[$v_username]["SHELL"];
+$v_shell_jail_enabled = $data[$v_username]["SHELL_JAIL_ENABLED"];
 $v_twofa = $data[$v_username]["TWOFA"];
 $v_qrcode = $data[$v_username]["QRCODE"];
 $v_phpcli = $data[$v_username]["PHPCLI"];
@@ -156,7 +159,7 @@ if (!empty($_POST["save"])) {
 		// Check password length
 		$pw_len = strlen($_POST["v_password"]);
 		if (!validate_password($_POST["v_password"])) {
-			$_SESSION["error_msg"] = _("Password does not match the minimum requirements");
+			$_SESSION["error_msg"] = _("Password does not match the minimum requirements.");
 		}
 		if (empty($_SESSION["error_msg"])) {
 			$v_password = tempnam("/tmp", "vst");
@@ -342,6 +345,9 @@ if (!empty($_POST["save"])) {
 			check_return_code($return_var, $output);
 			unset($output);
 		}
+
+		$_POST["v_role"] = $_POST["v_role"] ?? "";
+
 		if (
 			$v_role != $_POST["v_role"] &&
 			$_SESSION["userContext"] === "admin" &&
@@ -361,19 +367,43 @@ if (!empty($_POST["save"])) {
 			}
 		}
 		// Change shell (admin only)
-		if (
-			$v_shell != $_POST["v_shell"] &&
-			$_SESSION["userContext"] === "admin" &&
-			empty($_SESSION["error_msg"])
-		) {
-			$v_shell = quoteshellarg($_POST["v_shell"]);
-			exec(
-				HESTIA_CMD . "v-change-user-shell " . quoteshellarg($v_username) . " " . $v_shell,
-				$output,
-				$return_var,
-			);
-			check_return_code($return_var, $output);
-			unset($output);
+		if (!empty($_POST["v_shell"])) {
+			if (empty($_POST["v_shell_jail_enabled"])) {
+				$_POST["v_shell_jail_enabled"] = "no";
+			}
+
+			if (
+				in_array($_POST["v_shell"], ["nologin", "rssh"]) &&
+				$_POST["v_shell_jail_enabled"] == "yes"
+			) {
+				$_SESSION["error_msg"] = _(
+					"Cannot combine nologin and rssh shell with jailed shell.",
+				);
+			}
+
+			if (
+				($v_shell != $_POST["v_shell"] ||
+					$v_shell_jail_enabled != $_POST["v_shell_jail_enabled"]) &&
+				$_SESSION["userContext"] === "admin" &&
+				empty($_SESSION["error_msg"])
+			) {
+				$v_shell = quoteshellarg($_POST["v_shell"]);
+				$v_shell_jail_enabled = quoteshellarg($_POST["v_shell_jail_enabled"]);
+
+				exec(
+					HESTIA_CMD .
+						"v-change-user-shell " .
+						quoteshellarg($v_username) .
+						" " .
+						$v_shell .
+						" " .
+						$v_shell_jail_enabled,
+					$output,
+					$return_var,
+				);
+				check_return_code($return_var, $output);
+				unset($output);
+			}
 		}
 	}
 	// Change language
@@ -399,7 +429,7 @@ if (!empty($_POST["save"])) {
 	// Change contact email
 	if ($v_email != $_POST["v_email"] && empty($_SESSION["error_msg"])) {
 		if (!filter_var($_POST["v_email"], FILTER_VALIDATE_EMAIL)) {
-			$_SESSION["error_msg"] = _("Please enter valid email address.");
+			$_SESSION["error_msg"] = _("Please enter a valid email address.");
 		} else {
 			$v_email = quoteshellarg($_POST["v_email"]);
 			exec(
@@ -415,7 +445,7 @@ if (!empty($_POST["save"])) {
 	// Change full name
 	if ($v_name != $_POST["v_name"]) {
 		if (empty($_POST["v_name"])) {
-			$_SESSION["error_msg"] = _("Please enter a valid name");
+			$_SESSION["error_msg"] = _("Please enter a valid contact name.");
 		} else {
 			$v_name = quoteshellarg($_POST["v_name"]);
 			exec(
@@ -431,6 +461,9 @@ if (!empty($_POST["save"])) {
 
 	// Update theme
 	if (empty($_SESSION["error_msg"])) {
+		if (empty($_SESSION["userTheme"])) {
+			$_SESSION["userTheme"] = "";
+		}
 		if ($_POST["v_user_theme"] != $_SESSION["userTheme"]) {
 			exec(
 				HESTIA_CMD .
@@ -451,88 +484,94 @@ if (!empty($_POST["save"])) {
 		}
 	}
 
-	// Change NameServers
-	if (empty($_POST["v_ns1"])) {
-		$_POST["v_ns1"] = "";
-	}
-	if (empty($_POST["v_ns2"])) {
-		$_POST["v_ns2"] = "";
-	}
-	if (empty($_POST["v_ns3"])) {
-		$_POST["v_ns3"] = "";
-	}
-	if (empty($_POST["v_ns4"])) {
-		$_POST["v_ns4"] = "";
-	}
-	if (empty($_POST["v_ns5"])) {
-		$_POST["v_ns5"] = "";
-	}
-	if (empty($_POST["v_ns6"])) {
-		$_POST["v_ns6"] = "";
-	}
-	if (empty($_POST["v_ns7"])) {
-		$_POST["v_ns7"] = "";
-	}
-	if (empty($_POST["v_ns8"])) {
-		$_POST["v_ns8"] = "";
-	}
+	if (!empty($_SESSION["DNS_SYSTEM"])) {
+		if ($_SESSION["userContext"] === "admin") {
+			// Change NameServers
+			if (empty($_POST["v_ns1"])) {
+				$_POST["v_ns1"] = "";
+			}
+			if (empty($_POST["v_ns2"])) {
+				$_POST["v_ns2"] = "";
+			}
+			if (empty($_POST["v_ns3"])) {
+				$_POST["v_ns3"] = "";
+			}
+			if (empty($_POST["v_ns4"])) {
+				$_POST["v_ns4"] = "";
+			}
+			if (empty($_POST["v_ns5"])) {
+				$_POST["v_ns5"] = "";
+			}
+			if (empty($_POST["v_ns6"])) {
+				$_POST["v_ns6"] = "";
+			}
+			if (empty($_POST["v_ns7"])) {
+				$_POST["v_ns7"] = "";
+			}
+			if (empty($_POST["v_ns8"])) {
+				$_POST["v_ns8"] = "";
+			}
 
-	if (
-		$v_ns1 != $_POST["v_ns1"] ||
-		$v_ns2 != $_POST["v_ns2"] ||
-		$v_ns3 != $_POST["v_ns3"] ||
-		$v_ns4 != $_POST["v_ns4"] ||
-		$v_ns5 != $_POST["v_ns5"] ||
-		$v_ns6 != $_POST["v_ns6"] ||
-		$v_ns7 != $_POST["v_ns7"] ||
-		($v_ns8 != $_POST["v_ns8"] && empty($_SESSION["error_msg"]))
-	) {
-		$v_ns1 = quoteshellarg($_POST["v_ns1"]);
-		$v_ns2 = quoteshellarg($_POST["v_ns2"]);
-		$v_ns3 = quoteshellarg($_POST["v_ns3"]);
-		$v_ns4 = quoteshellarg($_POST["v_ns4"]);
-		$v_ns5 = quoteshellarg($_POST["v_ns5"]);
-		$v_ns6 = quoteshellarg($_POST["v_ns6"]);
-		$v_ns7 = quoteshellarg($_POST["v_ns7"]);
-		$v_ns8 = quoteshellarg($_POST["v_ns8"]);
-		$ns_cmd =
-			HESTIA_CMD .
-			"v-change-user-ns " .
-			quoteshellarg($v_username) .
-			" " .
-			$v_ns1 .
-			" " .
-			$v_ns2;
-		if (!empty($_POST["v_ns3"])) {
-			$ns_cmd = $ns_cmd . " " . $v_ns3;
-		}
-		if (!empty($_POST["v_ns4"])) {
-			$ns_cmd = $ns_cmd . " " . $v_ns4;
-		}
-		if (!empty($_POST["v_ns5"])) {
-			$ns_cmd = $ns_cmd . " " . $v_ns5;
-		}
-		if (!empty($_POST["v_ns6"])) {
-			$ns_cmd = $ns_cmd . " " . $v_ns6;
-		}
-		if (!empty($_POST["v_ns7"])) {
-			$ns_cmd = $ns_cmd . " " . $v_ns7;
-		}
-		if (!empty($_POST["v_ns8"])) {
-			$ns_cmd = $ns_cmd . " " . $v_ns8;
-		}
-		exec($ns_cmd, $output, $return_var);
-		check_return_code($return_var, $output);
-		unset($output);
+			if (
+				$v_ns1 != $_POST["v_ns1"] ||
+				$v_ns2 != $_POST["v_ns2"] ||
+				$v_ns3 != $_POST["v_ns3"] ||
+				$v_ns4 != $_POST["v_ns4"] ||
+				$v_ns5 != $_POST["v_ns5"] ||
+				$v_ns6 != $_POST["v_ns6"] ||
+				$v_ns7 != $_POST["v_ns7"] ||
+				($v_ns8 != $_POST["v_ns8"] &&
+					empty($_SESSION["error_msg"] && !empty($_POST["v_ns1"]) && $_POST["v_ns2"]))
+			) {
+				$v_ns1 = quoteshellarg($_POST["v_ns1"]);
+				$v_ns2 = quoteshellarg($_POST["v_ns2"]);
+				$v_ns3 = quoteshellarg($_POST["v_ns3"]);
+				$v_ns4 = quoteshellarg($_POST["v_ns4"]);
+				$v_ns5 = quoteshellarg($_POST["v_ns5"]);
+				$v_ns6 = quoteshellarg($_POST["v_ns6"]);
+				$v_ns7 = quoteshellarg($_POST["v_ns7"]);
+				$v_ns8 = quoteshellarg($_POST["v_ns8"]);
 
-		$v_ns1 = str_replace("'", "", $v_ns1);
-		$v_ns2 = str_replace("'", "", $v_ns2);
-		$v_ns3 = str_replace("'", "", $v_ns3);
-		$v_ns4 = str_replace("'", "", $v_ns4);
-		$v_ns5 = str_replace("'", "", $v_ns5);
-		$v_ns6 = str_replace("'", "", $v_ns6);
-		$v_ns7 = str_replace("'", "", $v_ns7);
-		$v_ns8 = str_replace("'", "", $v_ns8);
+				$ns_cmd =
+					HESTIA_CMD .
+					"v-change-user-ns " .
+					quoteshellarg($v_username) .
+					" " .
+					$v_ns1 .
+					" " .
+					$v_ns2;
+				if (!empty($_POST["v_ns3"])) {
+					$ns_cmd = $ns_cmd . " " . $v_ns3;
+				}
+				if (!empty($_POST["v_ns4"])) {
+					$ns_cmd = $ns_cmd . " " . $v_ns4;
+				}
+				if (!empty($_POST["v_ns5"])) {
+					$ns_cmd = $ns_cmd . " " . $v_ns5;
+				}
+				if (!empty($_POST["v_ns6"])) {
+					$ns_cmd = $ns_cmd . " " . $v_ns6;
+				}
+				if (!empty($_POST["v_ns7"])) {
+					$ns_cmd = $ns_cmd . " " . $v_ns7;
+				}
+				if (!empty($_POST["v_ns8"])) {
+					$ns_cmd = $ns_cmd . " " . $v_ns8;
+				}
+				exec($ns_cmd, $output, $return_var);
+				check_return_code($return_var, $output);
+				unset($output);
+
+				$v_ns1 = str_replace("'", "", $v_ns1);
+				$v_ns2 = str_replace("'", "", $v_ns2);
+				$v_ns3 = str_replace("'", "", $v_ns3);
+				$v_ns4 = str_replace("'", "", $v_ns4);
+				$v_ns5 = str_replace("'", "", $v_ns5);
+				$v_ns6 = str_replace("'", "", $v_ns6);
+				$v_ns7 = str_replace("'", "", $v_ns7);
+				$v_ns8 = str_replace("'", "", $v_ns8);
+			}
+		}
 	}
 
 	// Set success message
