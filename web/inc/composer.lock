@@ -4,24 +4,24 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "7baaf7f37456e01a8ec4aeab69083cad",
+    "content-hash": "f32a18c9c2e9c9069f173ce08b0222b9",
     "packages": [
         {
             "name": "hestiacp/phpquoteshellarg",
-            "version": "v1.0.2",
+            "version": "v1.1.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/hestiacp/phpquoteshellarg.git",
-                "reference": "7fd1a3a648cdc39a3fe2aab78a1a3a0267f92f49"
+                "reference": "3499670c48aed5f04f2656e9cd06d6e2709e8e08"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/hestiacp/phpquoteshellarg/zipball/7fd1a3a648cdc39a3fe2aab78a1a3a0267f92f49",
-                "reference": "7fd1a3a648cdc39a3fe2aab78a1a3a0267f92f49",
+                "url": "https://api.github.com/repos/hestiacp/phpquoteshellarg/zipball/3499670c48aed5f04f2656e9cd06d6e2709e8e08",
+                "reference": "3499670c48aed5f04f2656e9cd06d6e2709e8e08",
                 "shasum": ""
             },
             "require": {
-                "php": ">=7.2"
+                "php": ">=8.0"
             },
             "type": "library",
             "autoload": {
@@ -40,9 +40,9 @@
                 "quoteshellarg"
             ],
             "support": {
-                "source": "https://github.com/hestiacp/phpquoteshellarg/tree/v1.0.2"
+                "source": "https://github.com/hestiacp/phpquoteshellarg/tree/v1.1.0"
             },
-            "time": "2023-07-23T09:16:27+00:00"
+            "time": "2024-09-20T12:11:02+00:00"
         },
         {
             "name": "phpmailer/phpmailer",
@@ -127,20 +127,20 @@
         },
         {
             "name": "robthree/twofactorauth",
-            "version": "v2.1.0",
+            "version": "v3.0.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/RobThree/TwoFactorAuth.git",
-                "reference": "ab93dd41ced7818ecda83a37c2741ee38bb72fb7"
+                "reference": "ec82d397ee6e66f382ce1ebd16d45549f3c2274b"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/RobThree/TwoFactorAuth/zipball/ab93dd41ced7818ecda83a37c2741ee38bb72fb7",
-                "reference": "ab93dd41ced7818ecda83a37c2741ee38bb72fb7",
+                "url": "https://api.github.com/repos/RobThree/TwoFactorAuth/zipball/ec82d397ee6e66f382ce1ebd16d45549f3c2274b",
+                "reference": "ec82d397ee6e66f382ce1ebd16d45549f3c2274b",
                 "shasum": ""
             },
             "require": {
-                "php": ">=8.1.0"
+                "php": ">=8.2.0"
             },
             "require-dev": {
                 "friendsofphp/php-cs-fixer": "^3.13",
@@ -204,7 +204,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2023-11-14T12:50:27+00:00"
+            "time": "2024-05-27T10:23:05+00:00"
         }
     ],
     "packages-dev": [],

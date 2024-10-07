@@ -291,6 +291,13 @@ is_backup_enabled() {
 	fi
 }
 
+is_incremental_backup_enabled() {
+	BACKUPS_INCREMENTAL=$(grep "^BACKUPS_INCREMENTAL=" $USER_DATA/user.conf | cut -f2 -d \')
+	if [ -z "$BACKUPS_INCREMENTAL" ] || [[ "$BACKUPS_INCREMENTAL" != "yes" ]]; then
+		check_result "$E_DISABLED" "incremental backups are disabled"
+	fi
+}
+
 # Check user backup settings
 is_backup_scheduled() {
 	if [ -e "$HESTIA/data/queue/backup.pipe" ]; then
@@ -753,7 +760,7 @@ is_user_format_valid() {
 
 	# Only for new users
 	if [[ "$FROM_V_ADD_USER" == "true" ]]; then
-		if ! [[ "$1" =~ ^[a-zA-Z][-|.|_[:alnum:]]{0,28}[[:alnum:]]$ ]]; then
+		if ! [[ "$1" =~ ^[a-zA-Z][-|_[:alnum:]]{0,28}[[:alnum:]]$ ]]; then
 			check_result "$E_INVALID" "invalid $2 format :: $1"
 		fi
 	fi
@@ -1154,8 +1161,9 @@ is_cron_format_valid() {
 
 # Validate CPU Quota:
 is_valid_cpu_quota() {
-	if [[ ! "$1" =~ ^[0-9]+%$ ]]; then
-		check_result "$E_INVALID" "Invalid CPU Quota format :: $1"
+	local cpu_quota="$1"
+	if [[ ! "$cpu_quota" =~ ^[1-9][0-9]*%$ ]]; then
+		check_result "$E_INVALID" "Invalid CPU Quota format: $cpu_quota"
 	fi
 }
 

@@ -6,7 +6,7 @@
 # https://www.hestiacp.com/
 #
 # Currently Supported Versions:
-# Debian 10, 11
+# Debian 10, 11 12
 #
 # ======================================================== #
 
@@ -35,11 +35,13 @@ HESTIA_INSTALL_VER='1.9.0~alpha'
 # Supported PHP versions
 multiphp_v=("5.6" "7.0" "7.1" "7.2" "7.3" "7.4" "8.0" "8.1" "8.2" "8.3")
 # One of the following PHP versions is required for Roundcube / phpmyadmin
-multiphp_required=("7.3" "7.4" "8.0" "8.1" "8.2","8.3")
+multiphp_required=("7.3" "7.4" "8.0" "8.1" "8.2" "8.3")
 # Default PHP version if none supplied
-fpm_v="8.2"
+fpm_v="8.3"
 # MariaDB version
-mariadb_v="10.11"
+mariadb_v="11.4"
+# Node.js version
+node_v="20"
 
 # Defining software pack for all distros
 software="acl apache2 apache2-suexec-custom apache2-suexec-pristine apache2-utils awstats bc bind9 bsdmainutils bsdutils
@@ -50,9 +52,9 @@ software="acl apache2 apache2-suexec-custom apache2-suexec-pristine apache2-util
   php$fpm_v php$fpm_v-apcu php$fpm_v-bz2 php$fpm_v-cgi php$fpm_v-cli php$fpm_v-common php$fpm_v-curl php$fpm_v-gd
   php$fpm_v-imagick php$fpm_v-imap php$fpm_v-intl php$fpm_v-ldap php$fpm_v-mbstring php$fpm_v-mysql php$fpm_v-opcache
   php$fpm_v-pgsql php$fpm_v-pspell php$fpm_v-readline php$fpm_v-xml php$fpm_v-zip postgresql postgresql-contrib
-  proftpd-basic quota rrdtool rsyslog spamd sudo sysstat unrar-free unzip util-linux vim-common vsftpd xxd whois zip zstd jailkit"
+  proftpd-basic quota rrdtool rsyslog spamd sysstat unrar-free unzip util-linux vim-common vsftpd xxd whois zip zstd jailkit restic"
 
-installer_dependencies="apt-transport-https ca-certificates curl dirmngr gnupg openssl wget"
+installer_dependencies="apt-transport-https ca-certificates curl dirmngr gnupg openssl wget sudo"
 
 # Defining help function
 help() {
@@ -424,6 +426,13 @@ if [ -d "/usr/local/hestia" ]; then
 	check_result 1 "Hestia install detected. Unable to continue"
 fi
 
+type=$(grep "^ID=" /etc/os-release | cut -f 2 -d '=')
+if [ "$type" = "ubuntu" ]; then
+	check_result 1 "You are running the wrong installer for Ubuntu. Please run hst-install.sh or hst-install-ubuntu.sh instead."
+elif [ "$type" != "debian" ]; then
+	check_result 1 "You are running an unsupported OS."
+fi
+
 # Clear the screen once launch permissions have been verified
 clear
 
@@ -690,7 +699,7 @@ if [ "$interactive" = 'yes' ]; then
 	fi
 fi
 
-#Validate Username / Password / Email / Hostname even when interactive = no
+# Validate Username / Password / Email / Hostname even when interactive = no
 if [ -z "$username" ]; then
 	while validate_username; do
 		read -p 'Please enter administrator username: ' username
@@ -701,7 +710,7 @@ else
 	fi
 fi
 
-#Ask for the password
+# Ask for password
 if [ -z "$vpass" ]; then
 	while validate_password; do
 		read -p 'Please enter administrator password: ' vpass
@@ -791,7 +800,7 @@ echo
 #                      Checking swap                       #
 #----------------------------------------------------------#
 
-# Checking swap on small instances
+# Add swap for low memory servers
 if [ -z "$(swapon -s)" ] && [ "$memory" -lt 1000000 ]; then
 	fallocate -l 1G /swapfile
 	chmod 600 /swapfile
@@ -807,7 +816,7 @@ fi
 # Define apt conf location
 apt=/etc/apt/sources.list.d
 
-# Create new folder if not all-ready exists
+# Create new folder if it doesn't exist
 mkdir -p /root/.gnupg/ && chmod 700 /root/.gnupg/
 
 # Updating system
@@ -815,7 +824,6 @@ echo "Adding required repositories to proceed with installation:"
 echo
 
 # Installing Nginx repo
-
 echo "[ * ] NGINX"
 echo "deb [arch=$ARCH signed-by=/usr/share/keyrings/nginx-keyring.gpg] https://nginx.org/packages/mainline/$VERSION/ $codename nginx" > $apt/nginx.list
 curl -s https://nginx.org/keys/nginx_signing.key | gpg --dearmor | tee /usr/share/keyrings/nginx-keyring.gpg > /dev/null 2>&1
@@ -834,15 +842,9 @@ fi
 
 # Installing MariaDB repo
 if [ "$mysql" = 'yes' ]; then
-	if [ "$release" != '12' ]; then
-		echo "[ * ] MariaDB"
-		echo "deb [arch=$ARCH signed-by=/usr/share/keyrings/mariadb-keyring.gpg] https://dlm.mariadb.com/repo/mariadb-server/$mariadb_v/repo/$VERSION $codename main" > $apt/mariadb.list
-		curl -s https://mariadb.org/mariadb_release_signing_key.asc | gpg --dearmor | tee /usr/share/keyrings/mariadb-keyring.gpg > /dev/null 2>&1
-	else
-		echo "[ * ] MariaDB"
-		echo "#deb [arch=$ARCH signed-by=/usr/share/keyrings/mariadb-keyring.gpg] https://dlm.mariadb.com/repo/mariadb-server/$mariadb_v/repo/$VERSION $codename main" > $apt/mariadb.list
-		curl -s https://mariadb.org/mariadb_release_signing_key.asc | gpg --dearmor | tee /usr/share/keyrings/mariadb-keyring.gpg > /dev/null 2>&1
-	fi
+	echo "[ * ] MariaDB $mariadb_v"
+	echo "deb [arch=$ARCH signed-by=/usr/share/keyrings/mariadb-keyring.gpg] https://dlm.mariadb.com/repo/mariadb-server/$mariadb_v/repo/$VERSION $codename main" > $apt/mariadb.list
+	curl -s https://mariadb.org/mariadb_release_signing_key.asc | gpg --dearmor | tee /usr/share/keyrings/mariadb-keyring.gpg > /dev/null 2>&1
 fi
 
 # Installing Mysql8 repo
@@ -866,11 +868,13 @@ echo "[ * ] Hestia Control Panel"
 echo "deb [arch=$ARCH signed-by=/usr/share/keyrings/hestia-keyring.gpg] https://$RHOST/ $codename main" > $apt/hestia.list
 gpg --no-default-keyring --keyring /usr/share/keyrings/hestia-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys A189E93654F0B0E5 > /dev/null 2>&1
 
-# Installing Node.js 20.x repo
-echo "[ * ] Node.js 20.x"
-echo "deb [signed-by=/usr/share/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x $codename main" > $apt/nodesource.list
-echo "deb-src [signed-by=/usr/share/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x $codename main" >> $apt/nodesource.list
-curl -s https://deb.nodesource.com/gpgkey/nodesource.gpg.key | gpg --dearmor | tee /usr/share/keyrings/nodesource.gpg > /dev/null 2>&1
+# Installing Node.js repo
+if [ "$webterminal" = 'yes' ]; then
+	echo "[ * ] Node.js $node_v"
+	echo "deb [arch=$ARCH signed-by=/usr/share/keyrings/nodejs.gpg] https://deb.nodesource.com/node_$node_v.x nodistro main" > $apt/nodejs.list
+	curl -s https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor | tee /usr/share/keyrings/nodejs.gpg > /dev/null 2>&1
+	apt-get -y install nodejs >> $LOG
+fi
 
 # Installing PostgreSQL repo
 if [ "$postgresql" = 'yes' ]; then
@@ -1167,8 +1171,15 @@ random_password=$(gen_pass '32')
 # do not allow login into hestiaweb user
 echo hestiaweb:$random_password | sudo chpasswd -e
 
+# Add a general group for normal users created by Hestia
+if [ -z "$(grep ^hestia-users: /etc/group)" ]; then
+	groupadd --system "hestia-users"
+fi
+
 # Create user for php-fpm configs
 /usr/sbin/useradd "hestiamail" -c "$email" --no-create-home
+# Ensures proper permissions for Hestia service interactions.
+/usr/sbin/adduser hestiamail hestia-users
 
 # Enable SFTP subsystem for SSH
 sftp_subsys_enabled=$(grep -iE "^#?.*subsystem.+(sftp )?sftp-server" /etc/ssh/sshd_config)
@@ -1194,7 +1205,7 @@ systemctl restart ssh
 
 # Disable AWStats cron
 rm -f /etc/cron.d/awstats
-# Replace awstatst function
+# Replace AWStats function
 cp -f $HESTIA_INSTALL_DIR/logrotate/httpd-prerotate/* /etc/logrotate.d/httpd-prerotate/
 
 # Set directory color
@@ -1212,13 +1223,17 @@ if [ -z "$(grep ^/usr/sbin/nologin /etc/shells)" ]; then
 fi
 
 # Configuring NTP
-if [ ! -f "/etc/default/ntpsec-ntpdate " ]; then
-	sed -i 's/#NTP=/NTP=pool.ntp.org/' /etc/systemd/timesyncd.conf
-	systemctl enable systemd-timesyncd
-	systemctl start systemd-timesyncd
+if [ ! -f "/etc/default/ntpsec-ntpdate" ]; then
+	if [ -f /etc/systemd/timesyncd.conf ]; then
+		# Not installed by default in debian 12, consider add systemd-timesyncd to
+		# package list for install
+		sed -i 's/#NTP=/NTP=pool.ntp.org/' /etc/systemd/timesyncd.conf
+		systemctl enable systemd-timesyncd
+		systemctl start systemd-timesyncd
+	fi
 fi
 # Restrict access to /proc fs
-# - Prevent unpriv users from seeing each other running processes
+# Prevent unpriv users from seeing each other running processes
 mount -o remount,defaults,hidepid=2 /proc > /dev/null 2>&1
 if [ $? -ne 0 ]; then
 	echo "Info: Cannot remount /proc (LXC containers require additional perm added to host apparmor profile)"
@@ -1276,7 +1291,7 @@ touch $HESTIA/conf/hestia.conf
 chmod 660 $HESTIA/conf/hestia.conf
 
 # Write default port value to hestia.conf
-# If a custom port is specified it will be set at the end of the installation process.
+# If a custom port is specified it will be set at the end of the installation process
 write_config_value "BACKEND_PORT" "8083"
 
 # Web stack
@@ -1387,7 +1402,7 @@ write_config_value "BACKUP_MODE" "zstd"
 # Language
 write_config_value "LANGUAGE" "$lang"
 
-# Login in screen
+# Login screen style
 write_config_value "LOGIN_STYLE" "default"
 
 # Theme
@@ -1452,7 +1467,7 @@ if [ "$named" = "no" ]; then
 	sed -i "/COMMENT='DNS'/d" $HESTIA/data/firewall/rules.conf
 fi
 
-# Installing apis
+# Installing API
 cp -rf $HESTIA_COMMON_DIR/api $HESTIA/data/
 
 # Configuring server hostname
@@ -1500,12 +1515,12 @@ rm /tmp/hst.pem
 # Install dhparam.pem
 cp -f $HESTIA_INSTALL_DIR/ssl/dhparam.pem /etc/ssl
 
-# Enable sftp jail
+# Enable SFTP jail
 echo "[ * ] Enabling SFTP jail..."
 $HESTIA/bin/v-add-sys-sftp-jail > /dev/null 2>&1
 check_result $? "can't enable sftp jail"
 
-# Enable ssh jail
+# Enable SSH jail
 echo "[ * ] Enabling SSH jail..."
 $HESTIA/bin/v-add-sys-ssh-jail > /dev/null 2>&1
 check_result $? "can't enable ssh jail"
@@ -1694,6 +1709,9 @@ if [ "$vsftpd" = 'yes' ]; then
 	touch /var/log/xferlog
 	chown root:adm /var/log/xferlog
 	chmod 640 /var/log/xferlog
+	if [ -s /etc/logrotate.d/vsftpd ] && ! grep -Fq "/var/log/xferlog" /etc/logrotate.d/vsftpd; then
+		sed -i 's|/var/log/vsftpd.log|/var/log/vsftpd.log /var/log/xferlog|g' /etc/logrotate.d/vsftpd
+	fi
 	update-rc.d vsftpd defaults > /dev/null 2>&1
 	systemctl start vsftpd >> $LOG
 	check_result $? "vsftpd start failed"
@@ -1747,8 +1765,8 @@ if [ "$mysql" = 'yes' ] || [ "$mysql8" = 'yes' ]; then
 	fi
 
 	if [ "$mysql_type" = 'MariaDB' ]; then
-		# Run mysql_install_db
-		mysql_install_db >> $LOG
+		# Run mariadb-install-db
+		mariadb-install-db >> $LOG
 	fi
 
 	# Remove symbolic link
@@ -1866,7 +1884,7 @@ if [ "$mysql" = 'yes' ] || [ "$mysql8" = 'yes' ]; then
 	# shellcheck source=/usr/local/hestia/install/deb/phpmyadmin/pma.sh
 	source $HESTIA_INSTALL_DIR/phpmyadmin/pma.sh > /dev/null 2>&1
 
-	# limit access to /etc/phpmyadmin/
+	# Limit access to /etc/phpmyadmin/
 	chown -R root:www-data /etc/phpmyadmin/
 	chmod -R 640 /etc/phpmyadmin/*
 	chmod 750 /etc/phpmyadmin/conf.d/
@@ -2004,7 +2022,7 @@ if [ "$dovecot" = 'yes' ]; then
 	touch /var/log/dovecot.log
 	chown -R dovecot:mail /var/log/dovecot.log
 	chmod 660 /var/log/dovecot.log
-	#Alter config for 2.2
+	# Alter config for 2.2
 	version=$(dovecot --version | cut -f -2 -d .)
 	if [ "$version" = "2.2" ]; then
 		echo "[ * ] Downgrade dovecot config to sync with 2.2 settings"
@@ -2198,7 +2216,7 @@ if [ "$sieve" = 'yes' ]; then
 		chmod 640 $RC_CONFIG_DIR/config.inc.php
 	fi
 
-	# Restart Dovecot and exim4
+	# Restart Dovecot and Exim4
 	systemctl restart dovecot > /dev/null 2>&1
 	systemctl restart exim4 > /dev/null 2>&1
 fi
@@ -2247,8 +2265,9 @@ $HESTIA/bin/v-add-sys-filemanager quiet
 echo "[ * ] Configuring PHP dependencies..."
 $HESTIA/bin/v-add-sys-dependencies quiet
 
-echo "[ * ] Installing Rclone..."
+echo "[ * ] Installing Rclone & Update Restic ..."
 curl -s https://rclone.org/install.sh | bash > /dev/null 2>&1
+restic self-update > /dev/null 2>&1
 
 #----------------------------------------------------------#
 #                   Configure IP                           #
@@ -2349,7 +2368,7 @@ chown hestiaweb:hestiaweb /var/spool/cron/crontabs/hestiaweb
 # Enable automatic updates
 $HESTIA/bin/v-add-cron-hestia-autoupdate apt
 
-# Building initital rrd images
+# Building initial rrd images
 $HESTIA/bin/v-update-sys-rrd
 
 # Enabling file system quota
